@@ -7,6 +7,9 @@ import numpy as np
 
 class App:
     def __init__(self, window, window_title, video_source=0):
+        """
+        Initializes the class and sets up the GUI.
+        """
         self.window = window
         self.window.title(window_title)
         self.video_source = video_source
@@ -47,6 +50,9 @@ class App:
 
 class MyVideoCapture:
     def __init__(self, video_source=0):
+        """
+        Initializes the class and sets up video capture and model.
+        """
         self.model = self.load_model()
         self.classes = self.model.names
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -127,4 +133,4 @@ class MyVideoCapture:
             self.vid.release()
 
 # Create a window and pass it to the Application object
-App(tkinter.Tk(), "Tkinter and OpenCV")
+App(tkinter.Tk(), "Object Detection")
