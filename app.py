@@ -1,9 +1,11 @@
 import tkinter
 import cv2
-import PIL.Image, PIL.ImageTk
+import PIL.Image
+import PIL.ImageTk
 import time
 import torch
-import numpy as np
+from flask import Flask, render_template, Response
+
 
 class App:
     def __init__(self, window, window_title, video_source=0):
@@ -18,35 +20,40 @@ class App:
         self.vid = MyVideoCapture(self.video_source)
 
         # Create a canvas that can fit the above video source size
-        self.canvas = tkinter.Canvas(window, width = self.vid.width, height = self.vid.height)
+        self.canvas = tkinter.Canvas(
+            window, width=self.vid.width, height=self.vid.height)
         self.canvas.pack()
 
         # Button that lets the user take a snapshot
-        self.btn_snapshot=tkinter.Button(window, text="Snapshot", width=50, command=self.snapshot)
+        self.btn_snapshot = tkinter.Button(
+            window, text="Snapshot", width=50, command=self.snapshot)
         self.btn_snapshot.pack(anchor=tkinter.CENTER, expand=True)
 
         # After it is called once, the update method will be automatically called every delay milliseconds
         self.delay = 15
-        self.update()
+        # self.update()
 
-        self.window.mainloop()
+        # self.window.mainloop()
 
     def snapshot(self):
         # Get a frame from the video source
         ret, frame = self.vid.get_frame()
 
         if ret:
-            cv2.imwrite("frame-" + time.strftime("%d-%m-%Y-%H-%M-%S") + ".jpg", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            cv2.imwrite("frame-" + time.strftime("%d-%m-%Y-%H-%M-%S") +
+                        ".jpg", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
 
     def update(self):
         # Get a frame from the video source
         ret, frame = self.vid.get_frame()
 
         if ret:
-            self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(frame))
-            self.canvas.create_image(0, 0, image = self.photo, anchor = tkinter.NW)
+            self.photo = PIL.ImageTk.PhotoImage(
+                image=PIL.Image.fromarray(frame))
+            self.canvas.create_image(0, 0, image=self.photo, anchor=tkinter.NW)
 
         self.window.after(self.delay, self.update)
+
 
 class MyVideoCapture:
     def __init__(self, video_source=0):
@@ -55,8 +62,9 @@ class MyVideoCapture:
         """
         self.model = self.load_model()
         self.classes = self.model.names
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        
+        #self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.device = 'cpu'
+
         # Open the video source
         self.vid = cv2.VideoCapture(video_source)
         if not self.vid.isOpened():
@@ -71,7 +79,8 @@ class MyVideoCapture:
         Loads Yolo5 model from pytorch hub.
         :return: Trained Pytorch model.
         """
-        model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+        model = torch.hub.load('ultralytics/yolov5',
+                               'yolov5s', pretrained=True)
         return model
 
     def score_frame(self, frame):
@@ -83,7 +92,8 @@ class MyVideoCapture:
         self.model.to(self.device)
         frame = [frame]
         results = self.model(frame)
-        labels, cord = results.xyxyn[0][:, -1].numpy(), results.xyxyn[0][:, :-1].numpy()
+        labels, cord = results.xyxyn[0][:, -
+                                        1].numpy(), results.xyxyn[0][:, :-1].numpy()
         return labels, cord
 
     def class_to_label(self, x):
@@ -107,10 +117,12 @@ class MyVideoCapture:
         for i in range(n):
             row = cord[i]
             if row[4] >= 0.2:
-                x1, y1, x2, y2 = int(row[0]*x_shape), int(row[1]*y_shape), int(row[2]*x_shape), int(row[3]*y_shape)
+                x1, y1, x2, y2 = int(
+                    row[0]*x_shape), int(row[1]*y_shape), int(row[2]*x_shape), int(row[3]*y_shape)
                 bgr = (0, 255, 0)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), bgr, 2)
-                cv2.putText(frame, self.class_to_label(labels[i]), (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 0.9, bgr, 2)
+                cv2.putText(frame, self.class_to_label(
+                    labels[i]), (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 0.9, bgr, 2)
 
         return frame
 
@@ -127,10 +139,72 @@ class MyVideoCapture:
         else:
             return (ret, None)
 
+    def gen_frames(self):  # generate frame by frame from camera
+        while True:
+            # Capture frame-by-frame
+            success, frame = self.vid.read()  # read the camera frame
+            if not success:
+                break
+            else:
+                results = self.score_frame(frame)
+                frame = self.plot_boxes(results, frame)
+                ret, buffer = cv2.imencode('.jpg', frame)
+                if ret:
+                    frame = buffer.tobytes()
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')  # concat frame one by one and show result
+
     # Release the video source when the object is destroyed
     def __del__(self):
         if self.vid.isOpened():
             self.vid.release()
 
+
 # Create a window and pass it to the Application object
-App(tkinter.Tk(), "Object Detection")
+detector = App(tkinter.Tk(), "Object Detection")
+
+
+class FlaskAppWrapper(object):
+
+    def __init__(self, app, **configs):
+        self.app = app
+        self.configs(**configs)
+
+    def configs(self, **configs):
+        for config, value in configs:
+            self.app.config[config.upper()] = value
+
+    def add_endpoint(self, endpoint=None, endpoint_name=None, handler=None, methods=['GET'], *args, **kwargs):
+        self.app.add_url_rule(endpoint, endpoint_name,
+                              handler, methods=methods, *args, **kwargs)
+
+    def run(self, **kwargs):
+        self.app.run(**kwargs)
+
+
+flask_app = Flask(__name__)
+
+app = FlaskAppWrapper(flask_app)
+
+
+def action():
+    """ Function which is triggered in flask app """
+    return "Hello World"
+
+
+def index():
+    """Video streaming home page."""
+    return render_template('index.html')
+
+
+def video_feed():
+    # Video streaming route. Put this in the src attribute of an img tag
+    return Response(detector.vid.gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+# Add endpoint for the action function
+app.add_endpoint('/', 'index', index, methods=['GET'])
+app.add_endpoint('/video_feed', 'video_feed', video_feed, methods=['GET'])
+app.add_endpoint('/action', 'action', action, methods=['GET'])
+if __name__ == "__main__":
+    app.run(debug=True)
