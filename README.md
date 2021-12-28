@@ -1,25 +1,32 @@
-# Real Time Object Detection
-TL;DR: Python application for read time object detection on video feed.
+# Real Time Object Detection and live streaming using OpenCV, Yolo5, PyTorch and Flask
+TL;DR: Python application for real time object detection on video feed. live stream accessible over the network.
 
-<img src="https://raw.githubusercontent.com/akash-agni/Real-Time-Object-Detection/main/img1.jpg" width="400">
+## Requirements
+- Python/Anaconda fresh environment is ideal
+
+## Installation
+1. Create a new environment using conda
+   ````
+   conda create -n <env_name> python=3.8
+   ````
+2. Add open source package channels
+   ````
+   conda config --add channels conda-forge
+   conda config --add channels pytorch
+   conda config --set channel_priority strict
+   ````
+3. Install Requirements
+   ````
+   conda install --file requirements.txt
+   ````
 
 ## Usage
-You can install all the used packages using.
+Run `app.py`. This runs a flask server on RPI and the live stream is accessible on `http://127.0.0.1:5000` or `http://RPI_LOCAL_IP:5000`
+   ````
+   python app.py
+   ````
 
-```pip install -r requirements.txt```
-
-To parse an URL.
-
-```python Object_Detection_YouTube.py <URL> <Output_Filename.avi>```
-
-To parse a drone video for humans only.
-
-```python Drone_Human_Detection_Model.py <input_file_name> <output_file_name.avi>```
-
-## Upcoming Features.
-<ul>
-    <li>Real Time Object Detection using Webcam.</li>
-    <li>Flask based REST API to stream parsed video live on web browser</li>
-</ul>
+## ToDo
+- Controls on Web Interface
 
 :blue_heart:
