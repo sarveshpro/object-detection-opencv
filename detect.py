@@ -62,7 +62,8 @@ class MyVideoCapture:
         """
         self.model = self.load_model()
         self.classes = self.model.names
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        #self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.device = 'cpu'
 
         # Open the video source
         self.vid = cv2.VideoCapture(video_source)
@@ -148,9 +149,10 @@ class MyVideoCapture:
                 results = self.score_frame(frame)
                 frame = self.plot_boxes(results, frame)
                 ret, buffer = cv2.imencode('.jpg', frame)
-                frame = buffer.tobytes()
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')  # concat frame one by one and show result
+                if ret:
+                    frame = buffer.tobytes()
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')  # concat frame one by one and show result
 
     # Release the video source when the object is destroyed
     def __del__(self):
