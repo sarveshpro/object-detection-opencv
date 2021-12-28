@@ -4,7 +4,7 @@ import PIL.Image
 import PIL.ImageTk
 import time
 import torch
-import numpy as np
+from flask import Flask, render_template, Response
 
 
 class App:
@@ -33,7 +33,7 @@ class App:
         self.delay = 15
         self.update()
 
-        self.window.mainloop()
+        # self.window.mainloop()
 
     def snapshot(self):
         # Get a frame from the video source
@@ -138,6 +138,20 @@ class MyVideoCapture:
         else:
             return (ret, None)
 
+    def gen_frames(self):  # generate frame by frame from camera
+        while True:
+            # Capture frame-by-frame
+            success, frame = self.vid.read()  # read the camera frame
+            if not success:
+                break
+            else:
+                results = self.score_frame(frame)
+                frame = self.plot_boxes(results, frame)
+                ret, buffer = cv2.imencode('.jpg', frame)
+                frame = buffer.tobytes()
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')  # concat frame one by one and show result
+
     # Release the video source when the object is destroyed
     def __del__(self):
         if self.vid.isOpened():
@@ -145,4 +159,50 @@ class MyVideoCapture:
 
 
 # Create a window and pass it to the Application object
-App(tkinter.Tk(), "Object Detection")
+detector = App(tkinter.Tk(), "Object Detection")
+
+
+class FlaskAppWrapper(object):
+
+    def __init__(self, app, **configs):
+        self.app = app
+        self.configs(**configs)
+
+    def configs(self, **configs):
+        for config, value in configs:
+            self.app.config[config.upper()] = value
+
+    def add_endpoint(self, endpoint=None, endpoint_name=None, handler=None, methods=['GET'], *args, **kwargs):
+        self.app.add_url_rule(endpoint, endpoint_name,
+                              handler, methods=methods, *args, **kwargs)
+
+    def run(self, **kwargs):
+        self.app.run(**kwargs)
+
+
+flask_app = Flask(__name__)
+
+app = FlaskAppWrapper(flask_app)
+
+
+def action():
+    """ Function which is triggered in flask app """
+    return "Hello World"
+
+
+def index():
+    """Video streaming home page."""
+    return render_template('index.html')
+
+
+def video_feed():
+    # Video streaming route. Put this in the src attribute of an img tag
+    return Response(detector.vid.gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+# Add endpoint for the action function
+app.add_endpoint('/', 'index', index, methods=['GET'])
+app.add_endpoint('/video_feed', 'video_feed', video_feed, methods=['GET'])
+app.add_endpoint('/action', 'action', action, methods=['GET'])
+if __name__ == "__main__":
+    app.run(debug=True)
