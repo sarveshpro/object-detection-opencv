@@ -31,7 +31,7 @@ class App:
 
         # After it is called once, the update method will be automatically called every delay milliseconds
         self.delay = 15
-        self.update()
+        # self.update()
 
         # self.window.mainloop()
 
