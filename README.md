@@ -9,7 +9,11 @@ TL;DR: Python application for real time object detection on video feed. live str
    ````
    conda create -n <env_name> python=3.8
    ````
-2. Add open source package channels
+2. Switch to the new environment
+   ````
+   conda activate <env_name>
+   ````
+4. Add open source package channels
    ````
    conda config --add channels conda-forge
    conda config --add channels pytorch
